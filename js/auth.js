@@ -2,6 +2,7 @@
 // Exposes `Auth` globally.
 (function () {
   const SCOPES = 'https://www.googleapis.com/auth/calendar';
+  const TOKEN_KEY = 'gtodo.auth.v1';
 
   let tokenClient = null;
   let accessToken = null;
@@ -13,6 +14,28 @@
 
   function isReady() {
     return typeof google !== 'undefined' && google.accounts && google.accounts.oauth2;
+  }
+
+  function loadCachedToken() {
+    try {
+      const raw = localStorage.getItem(TOKEN_KEY);
+      if (!raw) return false;
+      const { token, expiresAt } = JSON.parse(raw);
+      if (!token || Date.now() >= expiresAt) return false;
+      accessToken = token;
+      tokenExpiresAt = expiresAt;
+      return true;
+    } catch { return false; }
+  }
+
+  function saveCachedToken() {
+    try {
+      localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: accessToken, expiresAt: tokenExpiresAt }));
+    } catch {}
+  }
+
+  function clearCachedToken() {
+    localStorage.removeItem(TOKEN_KEY);
   }
 
   // Poll until the GIS script has loaded.
@@ -37,6 +60,7 @@
           accessToken = resp.access_token;
           // GIS gives expires_in in seconds.
           tokenExpiresAt = Date.now() + (resp.expires_in - 60) * 1000;
+          saveCachedToken();
           if (pendingResolve) pendingResolve(accessToken);
         }
         pendingResolve = pendingReject = null;
@@ -60,6 +84,15 @@
     return requestToken('consent');
   }
 
+  // Try silent refresh only — does NOT fall back to interactive consent.
+  // Returns the token on success; throws on failure.
+  async function silentRefresh() {
+    await whenReady();
+    const settings = Store.load();
+    if (!tokenClient) init(settings.clientId);
+    return requestToken('');
+  }
+
   // Silent refresh if we have a previous session; otherwise interactive.
   async function ensureToken() {
     if (accessToken && Date.now() < tokenExpiresAt) return accessToken;
@@ -80,6 +113,7 @@
     }
     accessToken = null;
     tokenExpiresAt = 0;
+    clearCachedToken();
   }
 
   function getToken() {
@@ -90,5 +124,5 @@
     return !!accessToken && Date.now() < tokenExpiresAt;
   }
 
-  window.Auth = { signIn, signOut, ensureToken, getToken, isSignedIn, init, whenReady };
+  window.Auth = { signIn, signOut, ensureToken, silentRefresh, getToken, isSignedIn, init, whenReady, loadCachedToken };
 })();

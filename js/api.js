@@ -57,19 +57,27 @@
   }
 
   // Fan-out across multiple calendars; merged + sorted by start time.
-  // Defaults to a wide window: 90 days back, 365 days ahead.
+  // Defaults to a wide window: 1000 days back, 365 days ahead.
   async function listEvents(calendarIds, opts = {}) {
-    const { daysBefore = 90, daysAhead = 365 } = opts;
+    const { daysBefore = 1000, daysAhead = 365 } = opts;
     const now = new Date();
     const timeMin = new Date(now.getTime() - daysBefore * 24 * 60 * 60 * 1000).toISOString();
     const timeMax = new Date(now.getTime() + daysAhead  * 24 * 60 * 60 * 1000).toISOString();
+    console.log(`[gtodo] fetching events: ${timeMin}  →  ${timeMax}  across ${calendarIds.length} calendar(s)`);
     const results = await Promise.all(
-      calendarIds.map(id => listEventsForCalendar(id, timeMin, timeMax).catch(err => {
-        console.warn('Failed to load calendar', id, err);
-        return [];
-      }))
+      calendarIds.map(async id => {
+        try {
+          const items = await listEventsForCalendar(id, timeMin, timeMax);
+          console.log(`[gtodo] ${id}: ${items.length} events`);
+          return items;
+        } catch (err) {
+          console.warn('[gtodo] Failed to load calendar', id, err);
+          return [];
+        }
+      })
     );
     const all = results.flat();
+    console.log(`[gtodo] total: ${all.length} events`);
     all.sort((a, b) => {
       const aTs = new Date(a.start.dateTime || a.start.date).getTime();
       const bTs = new Date(b.start.dateTime || b.start.date).getTime();

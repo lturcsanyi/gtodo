@@ -229,12 +229,9 @@ button.secondary:hover { background: var(--border); }
 .day-header[data-today] {
   color: var(--accent);
 }
-.day-header.past {
+.day-header.past,
+.event-row.past {
   opacity: 0.55;
-}
-.event-row.past .event-title {
-  text-decoration: line-through;
-  color: var(--text-muted);
 }
 
 .event-row {

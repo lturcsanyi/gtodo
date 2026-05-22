@@ -17,8 +17,9 @@
     if (diffDays === 0)  return 'Today';
     if (diffDays === 1)  return 'Tomorrow';
     if (diffDays === -1) return 'Yesterday';
-    if (diffDays > 1 && diffDays < 7) return that.toLocaleDateString(undefined, { weekday: 'long' });
-    return that.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    if (diffDays > 1 && diffDays < 7) return that.toLocaleDateString('hu-HU', { weekday: 'long' });
+    // Hungarian date format with year: "2026. máj. 22."
+    return that.toLocaleDateString('hu-HU', { year: 'numeric', month: 'short', day: 'numeric' });
   }
 
   function eventStartDate(e) {
@@ -32,7 +33,7 @@
   function timeLabel(e) {
     if (eventIsAllDay(e)) return '——';
     const d = eventStartDate(e);
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+    return d.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
   // Group events into ordered { dayKey, label, items[] }.

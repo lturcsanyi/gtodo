@@ -56,7 +56,8 @@
       return;
     }
     try {
-      eventsCache = await Api.listEvents(settings.sourceCalendarIds, { daysBefore: 90, daysAhead: 365 });
+      // Range defaults live in api.js (currently 1000 days back, 365 ahead).
+      eventsCache = await Api.listEvents(settings.sourceCalendarIds);
       // Hide events that belong to the Done calendar, just in case it's in source list.
       if (settings.doneCalendarId) {
         eventsCache = eventsCache.filter(e => e._calendarId !== settings.doneCalendarId);
@@ -220,10 +221,18 @@
     await Auth.whenReady();
     Auth.init(settings.clientId);
 
-    if (!Auth.isSignedIn()) {
-      UI.showOnly('view-signin');
-      return;
+    // 1) Reuse a still-valid cached access token (no network).
+    // 2) Else try silent refresh (no UI if user has prior consent + active Google session).
+    // 3) Else show the sign-in button.
+    if (!Auth.loadCachedToken()) {
+      try {
+        await Auth.silentRefresh();
+      } catch {
+        UI.showOnly('view-signin');
+        return;
+      }
     }
+
     if (!settings.sourceCalendarIds.length || !settings.doneCalendarId) {
       await showPickCals();
       return;
