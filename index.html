@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0b0d" />
+  <title>gtodo</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="apple-touch-icon" href="icons/icon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="appbar">
+    <h1>gtodo</h1>
+    <div class="appbar-actions">
+      <button id="refresh-btn" class="icon-btn" title="Refresh" aria-label="Refresh">↻</button>
+      <button id="settings-btn" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Loading state -->
+    <section id="view-loading" class="view">
+      <p class="muted center">Loading…</p>
+    </section>
+
+    <!-- Onboarding: needs Client ID -->
+    <section id="view-onboarding" class="view hidden">
+      <div class="card">
+        <h2>One-time setup</h2>
+        <p>Paste your Google OAuth <strong>Client ID</strong>. See the README for how to create one.</p>
+        <input id="client-id-input" type="text" placeholder="1234567890-abc...apps.googleusercontent.com" autocomplete="off" spellcheck="false" />
+        <button id="client-id-save" class="primary">Save</button>
+      </div>
+    </section>
+
+    <!-- Sign-in -->
+    <section id="view-signin" class="view hidden">
+      <div class="card center">
+        <h2>Sign in to Google</h2>
+        <p class="muted">gtodo needs read/write access to your calendars.</p>
+        <button id="signin-btn" class="primary">Sign in with Google</button>
+      </div>
+    </section>
+
+    <!-- Pick source + done calendars -->
+    <section id="view-pickcals" class="view hidden">
+      <div class="card">
+        <h2>Pick your calendars</h2>
+        <p class="muted">Choose which calendars feed the todo list, and where <em>Complete</em> moves events.</p>
+
+        <h3>Show events from</h3>
+        <div id="source-cal-list" class="cal-list"></div>
+
+        <h3>"Done" calendar (where completed events move)</h3>
+        <select id="done-cal-select"></select>
+
+        <div class="row-actions">
+          <button id="pickcals-save" class="primary">Save</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main list -->
+    <section id="view-list" class="view hidden">
+      <div id="event-list" class="event-list"></div>
+      <p id="empty-msg" class="muted center hidden">No upcoming events. ✨</p>
+      <p id="error-msg" class="error center hidden"></p>
+    </section>
+  </main>
+
+  <!-- Settings drawer (overlay) -->
+  <div id="settings-drawer" class="drawer hidden">
+    <div class="drawer-inner">
+      <div class="drawer-header">
+        <h2>Settings</h2>
+        <button id="settings-close" class="icon-btn" aria-label="Close">×</button>
+      </div>
+
+      <section>
+        <h3>Account</h3>
+        <p class="muted" id="account-info">Not signed in.</p>
+        <button id="signout-btn" class="secondary hidden">Sign out</button>
+      </section>
+
+      <section>
+        <h3>Show events from</h3>
+        <div id="settings-source-list" class="cal-list"></div>
+      </section>
+
+      <section>
+        <h3>"Done" calendar</h3>
+        <select id="settings-done-select"></select>
+      </section>
+
+      <section>
+        <h3>OAuth Client ID</h3>
+        <input id="settings-client-id" type="text" autocomplete="off" spellcheck="false" />
+        <button id="settings-client-id-save" class="secondary">Update client ID</button>
+      </section>
+
+      <div class="row-actions">
+        <button id="settings-save" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- App scripts -->
+  <script src="js/store.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => { /* offline-only nicety */ });
+      });
+    }
+  </script>
+</body>
+</html>
