@@ -36,27 +36,33 @@
     }));
   }
 
-  // List events from a single calendar, between two ISO timestamps.
+  // List events from a single calendar, between two ISO timestamps. Paginates fully.
   async function listEventsForCalendar(calendarId, timeMin, timeMax) {
-    const params = new URLSearchParams({
-      timeMin,
-      timeMax,
-      singleEvents: 'true',
-      orderBy: 'startTime',
-      maxResults: '250',
-    });
-    const data = await call(`/calendars/${encodeURIComponent(calendarId)}/events?${params}`);
-    return (data.items || []).map(e => ({
-      ...e,
-      _calendarId: calendarId,
-    }));
+    const items = [];
+    let pageToken = null;
+    do {
+      const params = new URLSearchParams({
+        timeMin,
+        timeMax,
+        singleEvents: 'true',
+        orderBy: 'startTime',
+        maxResults: '250',
+      });
+      if (pageToken) params.set('pageToken', pageToken);
+      const data = await call(`/calendars/${encodeURIComponent(calendarId)}/events?${params}`);
+      for (const e of (data.items || [])) items.push({ ...e, _calendarId: calendarId });
+      pageToken = data.nextPageToken || null;
+    } while (pageToken);
+    return items;
   }
 
   // Fan-out across multiple calendars; merged + sorted by start time.
-  async function listEvents(calendarIds, daysAhead = 30) {
+  // Defaults to a wide window: 90 days back, 365 days ahead.
+  async function listEvents(calendarIds, opts = {}) {
+    const { daysBefore = 90, daysAhead = 365 } = opts;
     const now = new Date();
-    const timeMin = now.toISOString();
-    const timeMax = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000).toISOString();
+    const timeMin = new Date(now.getTime() - daysBefore * 24 * 60 * 60 * 1000).toISOString();
+    const timeMax = new Date(now.getTime() + daysAhead  * 24 * 60 * 60 * 1000).toISOString();
     const results = await Promise.all(
       calendarIds.map(id => listEventsForCalendar(id, timeMin, timeMax).catch(err => {
         console.warn('Failed to load calendar', id, err);

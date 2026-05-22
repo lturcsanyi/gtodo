@@ -14,8 +14,9 @@
     const today = startOfDay(new Date());
     const that = startOfDay(d);
     const diffDays = Math.round((that - today) / (24 * 60 * 60 * 1000));
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === 0)  return 'Today';
+    if (diffDays === 1)  return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
     if (diffDays > 1 && diffDays < 7) return that.toLocaleDateString(undefined, { weekday: 'long' });
     return that.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   }
@@ -50,16 +51,27 @@
 
   function renderEventList(container, events, handlers) {
     container.innerHTML = '';
+    const todayKey = dayKey(new Date());
+    let firstFutureMarked = false;
     const groups = groupByDay(events);
     for (const g of groups) {
       const header = document.createElement('div');
       header.className = 'day-header';
       header.textContent = g.label;
+      if (g.dayKey === todayKey) {
+        header.dataset.today = '';
+      } else if (!firstFutureMarked && g.dayKey > todayKey) {
+        // Marks the first future day so we can anchor scroll there when there's no event today.
+        header.dataset.future = '';
+        firstFutureMarked = true;
+      }
+      if (g.dayKey < todayKey) header.classList.add('past');
       container.appendChild(header);
 
       for (const e of g.items) {
         const row = document.createElement('div');
         row.className = 'event-row';
+        if (g.dayKey < todayKey) row.classList.add('past');
         row.dataset.eventId = e.id;
 
         const check = document.createElement('button');

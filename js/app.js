@@ -5,6 +5,7 @@
 
   const els = {
     refreshBtn: document.getElementById('refresh-btn'),
+    todayBtn: document.getElementById('today-btn'),
     settingsBtn: document.getElementById('settings-btn'),
     eventList: document.getElementById('event-list'),
     emptyMsg: document.getElementById('empty-msg'),
@@ -34,6 +35,14 @@
     signoutBtn: document.getElementById('signout-btn'),
   };
 
+  function scrollToToday(behavior = 'smooth') {
+    // Prefer the explicit "today" header; otherwise the next future one.
+    const target =
+      els.eventList.querySelector('[data-today]') ||
+      els.eventList.querySelector('[data-future]');
+    if (target) target.scrollIntoView({ block: 'start', behavior });
+  }
+
   function showError(msg) {
     els.errorMsg.textContent = msg;
     els.errorMsg.classList.remove('hidden');
@@ -47,7 +56,7 @@
       return;
     }
     try {
-      eventsCache = await Api.listEvents(settings.sourceCalendarIds, 30);
+      eventsCache = await Api.listEvents(settings.sourceCalendarIds, { daysBefore: 90, daysAhead: 365 });
       // Hide events that belong to the Done calendar, just in case it's in source list.
       if (settings.doneCalendarId) {
         eventsCache = eventsCache.filter(e => e._calendarId !== settings.doneCalendarId);
@@ -58,6 +67,8 @@
         onDelete: handleDelete,
       });
       els.emptyMsg.classList.toggle('hidden', eventsCache.length > 0);
+      // Anchor scroll at today (or first upcoming day) on each load.
+      scrollToToday('auto');
     } catch (err) {
       console.error(err);
       showError('Could not load events: ' + err.message);
@@ -169,6 +180,7 @@
   });
 
   els.refreshBtn.addEventListener('click', () => loadAndRender());
+  els.todayBtn.addEventListener('click', () => scrollToToday('smooth'));
   els.settingsBtn.addEventListener('click', () => openSettings());
   els.settingsClose.addEventListener('click', closeSettings);
   els.settingsDrawer.addEventListener('click', (e) => {

@@ -93,6 +93,19 @@ body {
 .icon-btn:hover { background: var(--border); }
 .icon-btn:active { transform: scale(0.95); }
 
+.text-btn {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.text-btn:hover { background: var(--border); }
+
 /* Views */
 .view {
   padding: 0 16px;
@@ -210,6 +223,18 @@ button.secondary:hover { background: var(--border); }
   letter-spacing: 0.06em;
   color: var(--text-muted);
   padding: 18px 4px 6px 4px;
+  /* offset for the sticky app bar when scrollIntoView fires */
+  scroll-margin-top: 64px;
+}
+.day-header[data-today] {
+  color: var(--accent);
+}
+.day-header.past {
+  opacity: 0.55;
+}
+.event-row.past .event-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
 }
 
 .event-row {
