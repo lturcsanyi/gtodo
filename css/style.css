@@ -236,7 +236,7 @@ button.secondary:hover { background: var(--border); }
 
 .event-row {
   display: grid;
-  grid-template-columns: 28px 56px 1fr auto;
+  grid-template-columns: 28px 56px 3px 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 10px 4px;
@@ -284,6 +284,14 @@ button.secondary:hover { background: var(--border); }
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.event-color {
+  align-self: stretch;
+  width: 3px;
+  border-radius: 2px;
+  margin: 4px 0;
+  background: transparent;
 }
 
 .event-title {
@@ -360,7 +368,7 @@ button.secondary:hover { background: var(--border); }
 
 /* Mobile tweaks */
 @media (max-width: 480px) {
-  .event-row { grid-template-columns: 24px 52px 1fr auto; gap: 8px; padding: 12px 4px; }
+  .event-row { grid-template-columns: 24px 52px 3px 1fr auto; gap: 8px; padding: 12px 4px; }
   .event-delete { opacity: 0.5; }
   .card { margin: 16px 0; padding: 16px; }
 }

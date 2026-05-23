@@ -1,7 +1,19 @@
 // Entry point. Wires together store / auth / api / ui.
 (function () {
   let calendarsCache = [];
+  let calendarsById = new Map();
+  let colorsCache = null;
   let eventsCache = [];
+
+  // Per-event color: event.colorId wins, else the source calendar's color.
+  function colorFor(event) {
+    const evColorId = event.colorId;
+    if (evColorId && colorsCache && colorsCache.event && colorsCache.event[evColorId]) {
+      return colorsCache.event[evColorId].background;
+    }
+    const cal = calendarsById.get(event._calendarId);
+    return cal ? cal.colorBackground : 'transparent';
+  }
 
   const els = {
     refreshBtn: document.getElementById('refresh-btn'),
@@ -56,8 +68,14 @@
       return;
     }
     try {
-      // Range defaults live in api.js (currently 1000 days back, 365 ahead).
-      eventsCache = await Api.listEvents(settings.sourceCalendarIds);
+      // Fetch events, calendars, and the color palette in parallel.
+      // Calendars + palette are needed to resolve per-event colors for the row accent.
+      const [events, _cals, _colors] = await Promise.all([
+        Api.listEvents(settings.sourceCalendarIds),
+        refreshCalendarList(),
+        colorsCache ? Promise.resolve(colorsCache) : Api.getColors().then(c => { colorsCache = c; return c; }),
+      ]);
+      eventsCache = events;
       // Hide events that belong to the Done calendar, just in case it's in source list.
       if (settings.doneCalendarId) {
         eventsCache = eventsCache.filter(e => e._calendarId !== settings.doneCalendarId);
@@ -66,6 +84,7 @@
       UI.renderEventList(els.eventList, eventsCache, {
         onComplete: handleComplete,
         onDelete: handleDelete,
+        colorFor,
       });
       els.emptyMsg.classList.toggle('hidden', eventsCache.length > 0);
       // Anchor scroll at today (or first upcoming day) on each load.
@@ -108,6 +127,7 @@
 
   async function refreshCalendarList() {
     calendarsCache = await Api.listCalendars();
+    calendarsById = new Map(calendarsCache.map(c => [c.id, c]));
     return calendarsCache;
   }
 

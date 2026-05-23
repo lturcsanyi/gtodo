@@ -86,6 +86,12 @@
     return all;
   }
 
+  // Color palettes used by Calendar. Returns { calendar: {id: {background, foreground}}, event: {...} }.
+  // `colorId` on a calendar or event references these maps.
+  async function getColors() {
+    return await call('/colors');
+  }
+
   // Move an event to a different calendar.
   async function moveEvent(srcCalId, eventId, destCalId) {
     const url = `/calendars/${encodeURIComponent(srcCalId)}/events/${encodeURIComponent(eventId)}/move?destination=${encodeURIComponent(destCalId)}`;
@@ -98,5 +104,5 @@
     return await call(url, { method: 'DELETE' });
   }
 
-  window.Api = { listCalendars, listEvents, moveEvent, deleteEvent };
+  window.Api = { listCalendars, listEvents, getColors, moveEvent, deleteEvent };
 })();

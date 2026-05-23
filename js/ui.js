@@ -54,6 +54,7 @@
     container.innerHTML = '';
     const todayKey = dayKey(new Date());
     let firstFutureMarked = false;
+    const colorFor = handlers.colorFor || (() => 'transparent');
     const groups = groupByDay(events);
     for (const g of groups) {
       const header = document.createElement('div');
@@ -89,6 +90,11 @@
         time.className = 'event-time';
         time.textContent = timeLabel(e);
         row.appendChild(time);
+
+        const accent = document.createElement('span');
+        accent.className = 'event-color';
+        accent.style.background = colorFor(e);
+        row.appendChild(accent);
 
         const title = document.createElement('span');
         title.className = 'event-title';
