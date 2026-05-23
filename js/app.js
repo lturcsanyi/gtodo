@@ -144,6 +144,15 @@
     scrollToToday('auto');
   }
 
+  // Drop an event from all in-memory caches so it doesn't reappear when the
+  // user switches tabs (tab switches re-render from cache, not the API).
+  function dropFromCaches(event) {
+    const match = e => e.id === event.id && e._calendarId === event._calendarId;
+    eventsCache = eventsCache.filter(e => !match(e));
+    scheduleEvents = scheduleEvents.filter(e => !match(e));
+    importantEvents = importantEvents.filter(e => !match(e));
+  }
+
   async function handleComplete(event, rowEl) {
     const settings = Store.load();
     if (!settings.doneCalendarId) {
@@ -154,7 +163,8 @@
     rowEl.classList.add('fading');
     try {
       await Api.moveEvent(event._calendarId, event.id, settings.doneCalendarId);
-      setTimeout(() => rowEl.remove(), 220);
+      dropFromCaches(event);
+      setTimeout(() => UI.removeEventRow(rowEl), 220);
     } catch (err) {
       rowEl.querySelector('.event-check').classList.remove('checked');
       rowEl.classList.remove('fading');
@@ -167,7 +177,8 @@
     rowEl.classList.add('fading');
     try {
       await Api.deleteEvent(event._calendarId, event.id);
-      setTimeout(() => rowEl.remove(), 220);
+      dropFromCaches(event);
+      setTimeout(() => UI.removeEventRow(rowEl), 220);
     } catch (err) {
       rowEl.classList.remove('fading');
       showError('Delete failed: ' + err.message);

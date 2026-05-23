@@ -175,11 +175,30 @@
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== viewId));
   }
 
+  // Remove an event row, plus the preceding day-header if this was its last event.
+  // Day headers and event rows are flat siblings inside the list container, so
+  // we walk backwards to find the header that owns this row, then check whether
+  // anything between that header and the next header/end remains.
+  function removeEventRow(rowEl) {
+    let header = rowEl.previousElementSibling;
+    while (header && !header.classList.contains('day-header')) {
+      header = header.previousElementSibling;
+    }
+    rowEl.remove();
+    if (header) {
+      const next = header.nextElementSibling;
+      if (!next || next.classList.contains('day-header')) {
+        header.remove();
+      }
+    }
+  }
+
   window.UI = {
     renderEventList,
     renderCalendarChecklist,
     getCheckedIds,
     renderCalendarSelect,
     showOnly,
+    removeEventRow,
   };
 })();
