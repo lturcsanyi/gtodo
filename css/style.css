@@ -46,6 +46,11 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* When the tab bar is visible, reserve space so list content isn't hidden behind it. */
+body.has-tabbar {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+}
+
 .hidden { display: none !important; }
 .muted { color: var(--text-muted); }
 .center { text-align: center; }
@@ -325,6 +330,51 @@ button.secondary:hover { background: var(--border); }
 .event-delete:hover {
   color: var(--danger);
   background: var(--border);
+}
+
+/* Bottom tab bar — fixed, with safe-area inset for Android/iOS gesture areas. */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 20;
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.tab {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 14px 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+  transition: color 150ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab:active { transform: scale(0.98); }
+
+.tab.active { color: var(--accent); }
+
+/* Active-tab indicator: short underline above the label. */
+.tab.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 0 0 2px 2px;
 }
 
 /* Drawer (settings) */

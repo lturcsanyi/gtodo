@@ -71,6 +71,13 @@
     </section>
   </main>
 
+  <!-- Bottom tab bar — only visible when an Important calendar is configured.
+       Important is the default tab and sits on the left. -->
+  <nav id="tabbar" class="tabbar hidden" aria-label="Sections">
+    <button class="tab active" data-tab="important" type="button">Important</button>
+    <button class="tab" data-tab="events" type="button">Events</button>
+  </nav>
+
   <!-- Settings drawer (overlay) -->
   <div id="settings-drawer" class="drawer hidden">
     <div class="drawer-inner">
@@ -93,6 +100,12 @@
       <section>
         <h3>"Done" calendar</h3>
         <select id="settings-done-select"></select>
+      </section>
+
+      <section>
+        <h3>"Important" calendar (optional)</h3>
+        <p class="muted">Events from this calendar appear under a separate <em>Important</em> tab. Leave blank to disable the tab.</p>
+        <select id="settings-important-select"></select>
       </section>
 
       <section>

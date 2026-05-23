@@ -7,6 +7,8 @@
     clientId: '',
     sourceCalendarIds: [],   // ids of calendars to read events from
     doneCalendarId: '',      // id of calendar that "Complete" moves to
+    importantCalendarId: '', // optional: when set, events from this calendar
+                             // are shown in a separate "Important" tab.
   };
 
   function load() {

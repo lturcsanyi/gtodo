@@ -4,6 +4,9 @@
   let calendarsById = new Map();
   let colorsCache = null;
   let eventsCache = [];
+  let scheduleEvents = [];  // events for the "Events" tab (or single-list mode)
+  let importantEvents = []; // events for the "Important" tab
+  let currentTab = 'events';
 
   // Per-event color: event.colorId wins, else the source calendar's color.
   function colorFor(event) {
@@ -41,10 +44,15 @@
     settingsSave: document.getElementById('settings-save'),
     settingsSourceList: document.getElementById('settings-source-list'),
     settingsDoneSelect: document.getElementById('settings-done-select'),
+    settingsImportantSelect: document.getElementById('settings-important-select'),
     settingsClientId: document.getElementById('settings-client-id'),
     settingsClientIdSave: document.getElementById('settings-client-id-save'),
     accountInfo: document.getElementById('account-info'),
     signoutBtn: document.getElementById('signout-btn'),
+
+    // tab bar
+    tabbar: document.getElementById('tabbar'),
+    tabs: document.querySelectorAll('#tabbar .tab'),
   };
 
   function scrollToToday(behavior = 'smooth') {
@@ -68,10 +76,17 @@
       return;
     }
     try {
+      // Build the union of calendars we need to fetch from.
+      // Important calendar is added separately so it gets pulled in even if the
+      // user didn't include it in their source list.
+      const idsToFetch = settings.sourceCalendarIds.slice();
+      if (settings.importantCalendarId && !idsToFetch.includes(settings.importantCalendarId)) {
+        idsToFetch.push(settings.importantCalendarId);
+      }
       // Fetch events, calendars, and the color palette in parallel.
       // Calendars + palette are needed to resolve per-event colors for the row accent.
       const [events, _cals, _colors] = await Promise.all([
-        Api.listEvents(settings.sourceCalendarIds),
+        Api.listEvents(idsToFetch),
         refreshCalendarList(),
         colorsCache ? Promise.resolve(colorsCache) : Api.getColors().then(c => { colorsCache = c; return c; }),
       ]);
@@ -80,19 +95,53 @@
       if (settings.doneCalendarId) {
         eventsCache = eventsCache.filter(e => e._calendarId !== settings.doneCalendarId);
       }
+      // Split between the two tabs when an Important calendar is configured.
+      if (settings.importantCalendarId) {
+        importantEvents = eventsCache.filter(e => e._calendarId === settings.importantCalendarId);
+        scheduleEvents = eventsCache.filter(e => e._calendarId !== settings.importantCalendarId);
+      } else {
+        importantEvents = [];
+        scheduleEvents = eventsCache;
+      }
       UI.showOnly('view-list');
-      UI.renderEventList(els.eventList, eventsCache, {
-        onComplete: handleComplete,
-        onDelete: handleDelete,
-        colorFor,
-      });
-      els.emptyMsg.classList.toggle('hidden', eventsCache.length > 0);
-      // Anchor scroll at today (or first upcoming day) on each load.
-      scrollToToday('auto');
+      showTabbar(!!settings.importantCalendarId);
+      renderCurrentTab();
     } catch (err) {
       console.error(err);
       showError('Could not load events: ' + err.message);
     }
+  }
+
+  function showTabbar(visible) {
+    const wasVisible = !els.tabbar.classList.contains('hidden');
+    els.tabbar.classList.toggle('hidden', !visible);
+    document.body.classList.toggle('has-tabbar', visible);
+    if (!visible) {
+      // Tab bar going away: reset so a later re-enable doesn't resurrect a
+      // stale Important selection on the single-list view.
+      currentTab = 'events';
+    } else if (!wasVisible) {
+      // Transitioning hidden -> visible (cold start, or user just enabled the
+      // Important calendar): default to the Important tab. We do NOT reset on
+      // refresh while the bar is already visible, so the user's tab choice
+      // sticks across reloads of the event list.
+      currentTab = 'important';
+    }
+  }
+
+  function renderCurrentTab() {
+    const list = currentTab === 'important' ? importantEvents : scheduleEvents;
+    UI.renderEventList(els.eventList, list, {
+      onComplete: handleComplete,
+      onDelete: handleDelete,
+      colorFor,
+    });
+    els.emptyMsg.textContent = currentTab === 'important'
+      ? 'No important todos.'
+      : 'No upcoming events. ✨';
+    els.emptyMsg.classList.toggle('hidden', list.length > 0);
+    els.tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab));
+    scrollToToday('auto');
   }
 
   async function handleComplete(event, rowEl) {
@@ -150,6 +199,7 @@
         const cals = await refreshCalendarList();
         UI.renderCalendarChecklist(els.settingsSourceList, cals, settings.sourceCalendarIds);
         UI.renderCalendarSelect(els.settingsDoneSelect, cals, settings.doneCalendarId);
+        UI.renderCalendarSelect(els.settingsImportantSelect, cals, settings.importantCalendarId);
       } catch (err) {
         showError('Could not list calendars: ' + err.message);
       }
@@ -211,9 +261,19 @@
   els.settingsSave.addEventListener('click', async () => {
     const sourceCalendarIds = UI.getCheckedIds(els.settingsSourceList);
     const doneCalendarId = els.settingsDoneSelect.value;
-    Store.patch({ sourceCalendarIds, doneCalendarId });
+    const importantCalendarId = els.settingsImportantSelect.value;
+    Store.patch({ sourceCalendarIds, doneCalendarId, importantCalendarId });
     closeSettings();
     await loadAndRender();
+  });
+
+  els.tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const next = tab.dataset.tab;
+      if (next === currentTab) return;
+      currentTab = next;
+      renderCurrentTab();
+    });
   });
 
   els.settingsClientIdSave.addEventListener('click', () => {
@@ -233,6 +293,7 @@
   // ---- Boot ----
 
   async function boot() {
+    showTabbar(false);
     const settings = Store.load();
     if (!settings.clientId) {
       UI.showOnly('view-onboarding');
