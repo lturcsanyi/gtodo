@@ -302,9 +302,10 @@ button.secondary:hover { background: var(--border); }
 .event-title {
   font-size: 15px;
   color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Wrap long titles instead of truncating. overflow-wrap handles unbroken
+     strings (URLs, long tokens) so they don't blow out the grid column. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .event-delete {
