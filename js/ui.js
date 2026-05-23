@@ -107,7 +107,9 @@
         row.appendChild(del);
 
         // Tap on the row body (title/time area) opens the event in Calendar.
+        // Skip if the user is selecting text — copying shouldn't navigate.
         row.addEventListener('click', () => {
+          if (window.getSelection && window.getSelection().toString().length > 0) return;
           if (e.htmlLink) window.open(e.htmlLink, '_blank', 'noopener');
         });
 
