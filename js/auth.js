@@ -1,12 +1,16 @@
 // Google Identity Services token-client wrapper.
 // Exposes `Auth` globally.
 (function () {
-  const SCOPES = 'https://www.googleapis.com/auth/calendar';
+  // 'email' is included so we can fetch the signed-in account address once and
+  // pass it as `hint` on subsequent silent refreshes. Without the hint, GIS
+  // pops the account chooser whenever multiple Google accounts are signed in.
+  const SCOPES = 'email https://www.googleapis.com/auth/calendar';
   const TOKEN_KEY = 'gtodo.auth.v1';
 
   let tokenClient = null;
   let accessToken = null;
   let tokenExpiresAt = 0;
+  let userEmail = null;
 
   // Promise-resolver pattern: GIS callback fires later, we wait for it.
   let pendingResolve = null;
@@ -20,7 +24,10 @@
     try {
       const raw = localStorage.getItem(TOKEN_KEY);
       if (!raw) return false;
-      const { token, expiresAt } = JSON.parse(raw);
+      const { token, expiresAt, email } = JSON.parse(raw);
+      // Email outlives the access token — keep it around so we can hint the
+      // next refresh even when the cached token has expired.
+      if (email) userEmail = email;
       if (!token || Date.now() >= expiresAt) return false;
       accessToken = token;
       tokenExpiresAt = expiresAt;
@@ -30,7 +37,11 @@
 
   function saveCachedToken() {
     try {
-      localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: accessToken, expiresAt: tokenExpiresAt }));
+      localStorage.setItem(TOKEN_KEY, JSON.stringify({
+        token: accessToken,
+        expiresAt: tokenExpiresAt,
+        email: userEmail,
+      }));
     } catch {}
   }
 
@@ -62,17 +73,39 @@
           tokenExpiresAt = Date.now() + (resp.expires_in - 60) * 1000;
           saveCachedToken();
           if (pendingResolve) pendingResolve(accessToken);
+          // Fire-and-forget email fetch on first sign-in so subsequent refreshes
+          // can disambiguate the account silently.
+          if (!userEmail) fetchUserEmail();
         }
         pendingResolve = pendingReject = null;
       },
     });
   }
 
+  async function fetchUserEmail() {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.email) {
+        userEmail = data.email;
+        saveCachedToken();
+      }
+    } catch {}
+  }
+
   function requestToken(prompt) {
     return new Promise((resolve, reject) => {
       pendingResolve = resolve;
       pendingReject = reject;
-      tokenClient.requestAccessToken({ prompt });
+      const opts = { prompt };
+      // Pin the refresh to the previously-signed-in account so GIS doesn't
+      // show the account chooser when multiple Google accounts are active.
+      if (userEmail) opts.hint = userEmail;
+      tokenClient.requestAccessToken(opts);
     });
   }
 
@@ -81,7 +114,11 @@
     await whenReady();
     const settings = Store.load();
     if (!tokenClient) init(settings.clientId);
-    return requestToken('consent');
+    const token = await requestToken('consent');
+    // Refresh email after explicit consent — the user may have picked a
+    // different account from the chooser.
+    await fetchUserEmail();
+    return token;
   }
 
   // Try silent refresh only — does NOT fall back to interactive consent.
@@ -113,6 +150,7 @@
     }
     accessToken = null;
     tokenExpiresAt = 0;
+    userEmail = null;
     clearCachedToken();
   }
 
@@ -120,9 +158,13 @@
     return accessToken;
   }
 
+  function getEmail() {
+    return userEmail;
+  }
+
   function isSignedIn() {
     return !!accessToken && Date.now() < tokenExpiresAt;
   }
 
-  window.Auth = { signIn, signOut, ensureToken, silentRefresh, getToken, isSignedIn, init, whenReady, loadCachedToken };
+  window.Auth = { signIn, signOut, ensureToken, silentRefresh, getToken, getEmail, isSignedIn, init, whenReady, loadCachedToken };
 })();

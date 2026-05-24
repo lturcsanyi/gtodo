@@ -202,7 +202,12 @@
   async function openSettings() {
     const settings = Store.load();
     els.settingsClientId.value = settings.clientId;
-    els.accountInfo.textContent = Auth.isSignedIn() ? 'Signed in.' : 'Not signed in.';
+    if (Auth.isSignedIn()) {
+      const email = Auth.getEmail();
+      els.accountInfo.textContent = email ? `Signed in as ${email}` : 'Signed in.';
+    } else {
+      els.accountInfo.textContent = 'Not signed in.';
+    }
     els.signoutBtn.classList.toggle('hidden', !Auth.isSignedIn());
 
     if (Auth.isSignedIn()) {

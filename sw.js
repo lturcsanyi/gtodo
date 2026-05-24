@@ -1,6 +1,6 @@
 // Minimal service worker: cache the app shell, network-first for everything else.
 // Bumps cache name when files change so users get fresh code.
-const CACHE = 'gtodo-shell-v11';
+const CACHE = 'gtodo-shell-v12';
 const SHELL = [
   './',
   './index.html',
