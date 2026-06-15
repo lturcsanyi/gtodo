@@ -5,17 +5,35 @@
 
   const defaults = {
     clientId: '',
-    sourceCalendarIds: [],   // ids of calendars to read events from
+    tabs: [],                // ordered [{ calendarId, name }], one tab per calendar (1..5)
+    defaultCalendarId: '',   // calendarId of the tab shown on load; must be one of `tabs`
     doneCalendarId: '',      // id of calendar that "Complete" moves to
-    importantCalendarId: '', // optional: when set, events from this calendar
-                             // are shown in a separate "Important" tab.
   };
+
+  const MAX_TABS = 5;
+
+  // One-time upgrade from the old source/important model. Calendar titles aren't
+  // available here, so tab names are left blank; app.js fills them from the
+  // calendar list and persists, after which this no longer triggers (tabs set).
+  function migrate(parsed) {
+    if (Array.isArray(parsed.tabs) && parsed.tabs.length) return;
+    const source = Array.isArray(parsed.sourceCalendarIds) ? parsed.sourceCalendarIds : [];
+    if (!source.length) return;
+    const important = parsed.importantCalendarId || '';
+    const ordered = important
+      ? [important, ...source.filter(id => id !== important)]
+      : source.slice();
+    parsed.tabs = ordered.slice(0, MAX_TABS).map(id => ({ calendarId: id, name: '' }));
+    parsed.defaultCalendarId = important || ordered[0] || '';
+  }
 
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return { ...defaults };
-      return { ...defaults, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      migrate(parsed);
+      return { ...defaults, ...parsed };
     } catch {
       return { ...defaults };
     }
@@ -31,5 +49,5 @@
     return next;
   }
 
-  window.Store = { load, save, patch };
+  window.Store = { load, save, patch, MAX_TABS };
 })();

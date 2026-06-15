@@ -4,9 +4,7 @@
   let calendarsById = new Map();
   let colorsCache = null;
   let eventsCache = [];
-  let scheduleEvents = [];  // events for the "Events" tab (or single-list mode)
-  let importantEvents = []; // events for the "Important" tab
-  let currentTab = 'events';
+  let currentTab = ''; // calendarId of the active tab
 
   // Per-event color: event.colorId wins, else the source calendar's color.
   function colorFor(event) {
@@ -34,7 +32,8 @@
     signinBtn: document.getElementById('signin-btn'),
 
     // pickcals
-    sourceCalList: document.getElementById('source-cal-list'),
+    pickcalsTabs: document.getElementById('pickcals-tabs'),
+    pickcalsAddTab: document.getElementById('pickcals-add-tab'),
     doneCalSelect: document.getElementById('done-cal-select'),
     pickcalsSave: document.getElementById('pickcals-save'),
 
@@ -42,17 +41,16 @@
     settingsDrawer: document.getElementById('settings-drawer'),
     settingsClose: document.getElementById('settings-close'),
     settingsSave: document.getElementById('settings-save'),
-    settingsSourceList: document.getElementById('settings-source-list'),
+    settingsTabs: document.getElementById('settings-tabs'),
+    settingsAddTab: document.getElementById('settings-add-tab'),
     settingsDoneSelect: document.getElementById('settings-done-select'),
-    settingsImportantSelect: document.getElementById('settings-important-select'),
     settingsClientId: document.getElementById('settings-client-id'),
     settingsClientIdSave: document.getElementById('settings-client-id-save'),
     accountInfo: document.getElementById('account-info'),
     signoutBtn: document.getElementById('signout-btn'),
 
-    // tab bar
+    // tab bar (buttons built dynamically)
     tabbar: document.getElementById('tabbar'),
-    tabs: document.querySelectorAll('#tabbar .tab'),
   };
 
   function scrollToToday(behavior = 'smooth') {
@@ -71,18 +69,12 @@
 
   async function loadAndRender() {
     const settings = Store.load();
-    if (!settings.sourceCalendarIds.length) {
+    if (!settings.tabs.length) {
       UI.showOnly('view-pickcals');
       return;
     }
     try {
-      // Build the union of calendars we need to fetch from.
-      // Important calendar is added separately so it gets pulled in even if the
-      // user didn't include it in their source list.
-      const idsToFetch = settings.sourceCalendarIds.slice();
-      if (settings.importantCalendarId && !idsToFetch.includes(settings.importantCalendarId)) {
-        idsToFetch.push(settings.importantCalendarId);
-      }
+      const idsToFetch = settings.tabs.map(t => t.calendarId);
       // Fetch events, calendars, and the color palette in parallel.
       // Calendars + palette are needed to resolve per-event colors for the row accent.
       const [events, _cals, _colors] = await Promise.all([
@@ -91,20 +83,21 @@
         colorsCache ? Promise.resolve(colorsCache) : Api.getColors().then(c => { colorsCache = c; return c; }),
       ]);
       eventsCache = events;
-      // Hide events that belong to the Done calendar, just in case it's in source list.
-      if (settings.doneCalendarId) {
-        eventsCache = eventsCache.filter(e => e._calendarId !== settings.doneCalendarId);
+
+      // Finish migration from the old model: fill any blank tab names from the
+      // calendar list, then persist once so this stops running.
+      let namesChanged = false;
+      for (const t of settings.tabs) {
+        if (!t.name) {
+          const cal = calendarsById.get(t.calendarId);
+          t.name = (cal && cal.summary) || t.calendarId;
+          namesChanged = true;
+        }
       }
-      // Split between the two tabs when an Important calendar is configured.
-      if (settings.importantCalendarId) {
-        importantEvents = eventsCache.filter(e => e._calendarId === settings.importantCalendarId);
-        scheduleEvents = eventsCache.filter(e => e._calendarId !== settings.importantCalendarId);
-      } else {
-        importantEvents = [];
-        scheduleEvents = eventsCache;
-      }
+      if (namesChanged) Store.patch({ tabs: settings.tabs });
+
       UI.showOnly('view-list');
-      showTabbar(!!settings.importantCalendarId);
+      buildTabbar(settings.tabs, settings.defaultCalendarId);
       renderCurrentTab();
     } catch (err) {
       console.error(err);
@@ -112,45 +105,46 @@
     }
   }
 
-  function showTabbar(visible) {
-    const wasVisible = !els.tabbar.classList.contains('hidden');
+  function buildTabbar(tabs, defaultCalendarId) {
+    const ids = tabs.map(t => t.calendarId);
+    // Keep the current tab if still valid; otherwise fall back to the configured
+    // default, then the first tab. (Cold start has currentTab === '', so a full
+    // reload always lands on the default.)
+    if (!ids.includes(currentTab)) {
+      currentTab = ids.includes(defaultCalendarId) ? defaultCalendarId : ids[0];
+    }
+    els.tabbar.innerHTML = '';
+    for (const t of tabs) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tab' + (t.calendarId === currentTab ? ' active' : '');
+      btn.dataset.tab = t.calendarId;
+      btn.textContent = t.name || t.calendarId;
+      els.tabbar.appendChild(btn);
+    }
+    // A single-tab bar adds nothing; only show it once there's a choice.
+    const visible = tabs.length >= 2;
     els.tabbar.classList.toggle('hidden', !visible);
     document.body.classList.toggle('has-tabbar', visible);
-    if (!visible) {
-      // Tab bar going away: reset so a later re-enable doesn't resurrect a
-      // stale Important selection on the single-list view.
-      currentTab = 'events';
-    } else if (!wasVisible) {
-      // Transitioning hidden -> visible (cold start, or user just enabled the
-      // Important calendar): default to the Important tab. We do NOT reset on
-      // refresh while the bar is already visible, so the user's tab choice
-      // sticks across reloads of the event list.
-      currentTab = 'important';
-    }
   }
 
   function renderCurrentTab() {
-    const list = currentTab === 'important' ? importantEvents : scheduleEvents;
+    const list = eventsCache.filter(e => e._calendarId === currentTab);
     UI.renderEventList(els.eventList, list, {
       onComplete: handleComplete,
       onDelete: handleDelete,
       colorFor,
     });
-    els.emptyMsg.textContent = currentTab === 'important'
-      ? 'No important todos.'
-      : 'No upcoming events. ✨';
+    els.emptyMsg.textContent = 'No events. ✨';
     els.emptyMsg.classList.toggle('hidden', list.length > 0);
-    els.tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab));
+    els.tabbar.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab));
     scrollToToday('auto');
   }
 
-  // Drop an event from all in-memory caches so it doesn't reappear when the
-  // user switches tabs (tab switches re-render from cache, not the API).
+  // Drop an event from the cache so it doesn't reappear when the user switches
+  // tabs (tab switches re-render from cache, not the API).
   function dropFromCaches(event) {
-    const match = e => e.id === event.id && e._calendarId === event._calendarId;
-    eventsCache = eventsCache.filter(e => !match(e));
-    scheduleEvents = scheduleEvents.filter(e => !match(e));
-    importantEvents = importantEvents.filter(e => !match(e));
+    eventsCache = eventsCache.filter(e => !(e.id === event.id && e._calendarId === event._calendarId));
   }
 
   async function handleComplete(event, rowEl) {
@@ -194,9 +188,39 @@
   async function showPickCals() {
     const settings = Store.load();
     const cals = await refreshCalendarList();
-    UI.renderCalendarChecklist(els.sourceCalList, cals, settings.sourceCalendarIds);
+    UI.renderTabsEditor(els.pickcalsTabs, cals, settings.tabs, settings.defaultCalendarId, els.pickcalsAddTab);
     UI.renderCalendarSelect(els.doneCalSelect, cals, settings.doneCalendarId);
     UI.showOnly('view-pickcals');
+  }
+
+  // Validate + normalize the tabs editor result. Returns null (after showing an
+  // error) when invalid, else { tabs, defaultCalendarId }.
+  function collectTabs(container, doneCalendarId) {
+    // alert() (not showError) because the inline banner lives in #view-list,
+    // which is hidden during onboarding and behind the settings drawer.
+    const { tabs, defaultCalendarId } = UI.readTabsEditor(container);
+    if (!tabs.length || tabs.length > Store.MAX_TABS) {
+      alert(`Pick 1–${Store.MAX_TABS} calendars.`);
+      return null;
+    }
+    if (tabs.some(t => !t.calendarId)) {
+      alert('Every tab needs a calendar.');
+      return null;
+    }
+    const ids = tabs.map(t => t.calendarId);
+    if (new Set(ids).size !== ids.length) {
+      alert('Each calendar can only be used once.');
+      return null;
+    }
+    if (!doneCalendarId) {
+      alert('Pick a Done calendar.');
+      return null;
+    }
+    const named = tabs.map(t => ({
+      calendarId: t.calendarId,
+      name: t.name || (calendarsById.get(t.calendarId)?.summary) || t.calendarId,
+    }));
+    return { tabs: named, defaultCalendarId: ids.includes(defaultCalendarId) ? defaultCalendarId : ids[0] };
   }
 
   async function openSettings() {
@@ -213,9 +237,8 @@
     if (Auth.isSignedIn()) {
       try {
         const cals = await refreshCalendarList();
-        UI.renderCalendarChecklist(els.settingsSourceList, cals, settings.sourceCalendarIds);
+        UI.renderTabsEditor(els.settingsTabs, cals, settings.tabs, settings.defaultCalendarId, els.settingsAddTab);
         UI.renderCalendarSelect(els.settingsDoneSelect, cals, settings.doneCalendarId);
-        UI.renderCalendarSelect(els.settingsImportantSelect, cals, settings.importantCalendarId);
       } catch (err) {
         showError('Could not list calendars: ' + err.message);
       }
@@ -241,7 +264,7 @@
       await Auth.signIn();
       // After first sign-in, force calendar pick if not yet set.
       const settings = Store.load();
-      if (!settings.sourceCalendarIds.length || !settings.doneCalendarId) {
+      if (!settings.tabs.length || !settings.doneCalendarId) {
         await showPickCals();
       } else {
         await loadAndRender();
@@ -252,17 +275,10 @@
   });
 
   els.pickcalsSave.addEventListener('click', async () => {
-    const sourceCalendarIds = UI.getCheckedIds(els.sourceCalList);
     const doneCalendarId = els.doneCalSelect.value;
-    if (!sourceCalendarIds.length) {
-      showError('Pick at least one source calendar.');
-      return;
-    }
-    if (!doneCalendarId) {
-      showError('Pick a Done calendar.');
-      return;
-    }
-    Store.patch({ sourceCalendarIds, doneCalendarId });
+    const result = collectTabs(els.pickcalsTabs, doneCalendarId);
+    if (!result) return;
+    Store.patch({ tabs: result.tabs, defaultCalendarId: result.defaultCalendarId, doneCalendarId });
     await loadAndRender();
   });
 
@@ -275,21 +291,21 @@
   });
 
   els.settingsSave.addEventListener('click', async () => {
-    const sourceCalendarIds = UI.getCheckedIds(els.settingsSourceList);
     const doneCalendarId = els.settingsDoneSelect.value;
-    const importantCalendarId = els.settingsImportantSelect.value;
-    Store.patch({ sourceCalendarIds, doneCalendarId, importantCalendarId });
+    const result = collectTabs(els.settingsTabs, doneCalendarId);
+    if (!result) return;
+    Store.patch({ tabs: result.tabs, defaultCalendarId: result.defaultCalendarId, doneCalendarId });
     closeSettings();
     await loadAndRender();
   });
 
-  els.tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const next = tab.dataset.tab;
-      if (next === currentTab) return;
-      currentTab = next;
-      renderCurrentTab();
-    });
+  els.tabbar.addEventListener('click', (e) => {
+    const btn = e.target.closest('.tab');
+    if (!btn) return;
+    const next = btn.dataset.tab;
+    if (next === currentTab) return;
+    currentTab = next;
+    renderCurrentTab();
   });
 
   els.settingsClientIdSave.addEventListener('click', () => {
@@ -309,7 +325,8 @@
   // ---- Boot ----
 
   async function boot() {
-    showTabbar(false);
+    els.tabbar.classList.add('hidden');
+    document.body.classList.remove('has-tabbar');
     const settings = Store.load();
     if (!settings.clientId) {
       UI.showOnly('view-onboarding');
@@ -330,7 +347,7 @@
       }
     }
 
-    if (!settings.sourceCalendarIds.length || !settings.doneCalendarId) {
+    if (!settings.tabs.length || !settings.doneCalendarId) {
       await showPickCals();
       return;
     }

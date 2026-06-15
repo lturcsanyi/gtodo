@@ -23,14 +23,15 @@ Five JS files, each an IIFE that attaches a single global (`Store`, `Auth`, `Api
 Boot flow (`js/app.js` → `boot()`):
 1. No `clientId` in localStorage → onboarding view (paste OAuth Client ID).
 2. Try cached token (`Auth.loadCachedToken`) → else silent refresh (`Auth.silentRefresh`, empty `prompt`) → else sign-in view.
-3. No source/done calendars picked → calendar-picker view.
+3. No tabs configured or no Done calendar picked → tab-setup view.
 4. Otherwise → fetch events and render.
 
 Layer responsibilities:
-- **`store.js`** — localStorage settings under key `gtodo.settings.v1` (`clientId`, `sourceCalendarIds[]`, `doneCalendarId`).
+- **`store.js`** — localStorage settings under key `gtodo.settings.v1` (`clientId`, `tabs[]` of `{calendarId, name}` (1–5, ordered), `defaultCalendarId`, `doneCalendarId`). `load()` one-time-migrates the old `sourceCalendarIds[]`/`importantCalendarId` model into `tabs[]`; `MAX_TABS` is exported.
 - **`auth.js`** — Google Identity Services token client. Caches `{token, expiresAt}` under `gtodo.auth.v1`. Single in-flight token request tracked via `pendingResolve`/`pendingReject`. `ensureToken()` is the public entry point used by `api.js`; it auto-falls back from silent → consent prompt.
 - **`api.js`** — Thin `fetch` wrapper over Calendar REST v3. `listEvents()` fans out across selected calendars in parallel, tags each event with `_calendarId`, paginates fully, sorts by start. Default window is **1000 days back, 365 days ahead** (wide, by design — the app is also a history viewer). Per-calendar failures are logged and swallowed so one bad calendar doesn't blank the list.
-- **`ui.js`** — Day-grouped rendering. Headers get `data-today` / `data-future` attributes; `app.js#scrollToToday` uses these as scroll anchors. Date/time formatting is hardcoded to `'hu-HU'` locale.
+- **`ui.js`** — Day-grouped rendering. Headers get `data-today` / `data-future` attributes; `app.js#scrollToToday` uses these as scroll anchors. Date/time formatting is hardcoded to `'hu-HU'` locale. Also owns the **tabs editor** (`renderTabsEditor`/`readTabsEditor`): one row per tab (default radio, calendar select, name, ▲▼ reorder, × remove), reused by both the picker and settings drawer.
+- **`app.js`** — Builds the bottom tab bar from `settings.tabs` (one button per calendar; bar shown only when ≥2 tabs). `currentTab` is the active calendarId; `renderCurrentTab` filters `eventsCache` by it. A full reload lands on `defaultCalendarId`; in-session refresh keeps the current tab if still valid.
 - **`sw.js`** — App-shell cache, network-first for same-origin, never touches cross-origin (Google APIs/GIS pass through).
 
 Event actions:

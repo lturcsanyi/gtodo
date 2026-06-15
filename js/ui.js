@@ -124,36 +124,133 @@
     }
   }
 
-  function renderCalendarChecklist(container, calendars, selectedIds, opts = {}) {
-    container.innerHTML = '';
-    const excludeId = opts.excludeId;
-    for (const cal of calendars) {
-      if (excludeId && cal.id === excludeId) continue;
-      const row = document.createElement('label');
-      row.className = 'cal-row';
+  // ---- Tabs editor ----
+  // Renders one editable row per tab (default radio, calendar select, name,
+  // ▲▼ reorder, × remove) into `container`, plus wires the external `addBtn`.
+  // Read the result back with `readTabsEditor`.
 
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.value = cal.id;
-      cb.checked = selectedIds.includes(cal.id);
-      row.appendChild(cb);
+  function makeTabRow(container, tab) {
+    const calendars = container._calendars || [];
+    const row = document.createElement('div');
+    row.className = 'tab-edit-row';
 
-      const swatch = document.createElement('span');
-      swatch.className = 'cal-swatch';
-      swatch.style.background = cal.colorBackground;
-      row.appendChild(swatch);
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.className = 'tab-default';
+    radio.name = container._radioName;
+    radio.title = 'Default tab';
+    if (tab && tab.isDefault) radio.checked = true;
+    row.appendChild(radio);
 
-      const label = document.createElement('span');
-      label.className = 'cal-label';
-      label.textContent = cal.summary + (cal.primary ? ' (primary)' : '');
-      row.appendChild(label);
+    const select = document.createElement('select');
+    select.className = 'tab-cal';
+    renderCalendarSelect(select, calendars, tab ? tab.calendarId : '');
+    row.appendChild(select);
 
-      container.appendChild(row);
+    const name = document.createElement('input');
+    name.type = 'text';
+    name.className = 'tab-name';
+    name.placeholder = 'Tab name';
+    name.value = tab ? (tab.name || '') : '';
+    row.appendChild(name);
+
+    for (const [cls, label, title] of [
+      ['tab-up', '▲', 'Move up'],
+      ['tab-down', '▼', 'Move down'],
+      ['tab-remove', '×', 'Remove'],
+    ]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = cls + ' icon-btn';
+      b.textContent = label;
+      b.title = title;
+      row.appendChild(b);
     }
+    return row;
   }
 
-  function getCheckedIds(container) {
-    return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+  function updateTabControls(container) {
+    const rows = Array.from(container.querySelectorAll('.tab-edit-row'));
+    rows.forEach((row, i) => {
+      row.querySelector('.tab-up').disabled = i === 0;
+      row.querySelector('.tab-down').disabled = i === rows.length - 1;
+      row.querySelector('.tab-remove').disabled = rows.length === 1;
+    });
+    if (container._addBtn) container._addBtn.disabled = rows.length >= Store.MAX_TABS;
+    // Keep exactly one default selected.
+    const radios = container.querySelectorAll('.tab-default');
+    if (radios.length && ![...radios].some(r => r.checked)) radios[0].checked = true;
+  }
+
+  function renderTabsEditor(container, calendars, tabs, defaultCalendarId, addBtn) {
+    container.innerHTML = '';
+    container._calendars = calendars;
+    container._radioName = container.id + '-default';
+    container._addBtn = addBtn;
+
+    const list = (tabs && tabs.length) ? tabs : [{ calendarId: '', name: '' }];
+    for (const t of list) {
+      container.appendChild(makeTabRow(container, {
+        ...t,
+        isDefault: !!t.calendarId && t.calendarId === defaultCalendarId,
+      }));
+    }
+
+    if (!container.dataset.wired) {
+      container.dataset.wired = '1';
+      container.addEventListener('click', (e) => {
+        const row = e.target.closest('.tab-edit-row');
+        if (!row || !container.contains(row)) return;
+        if (e.target.closest('.tab-remove')) {
+          const wasDefault = row.querySelector('.tab-default').checked;
+          row.remove();
+          if (wasDefault) {
+            const first = container.querySelector('.tab-default');
+            if (first) first.checked = true;
+          }
+          updateTabControls(container);
+        } else if (e.target.closest('.tab-up')) {
+          const prev = row.previousElementSibling;
+          if (prev) container.insertBefore(row, prev);
+          updateTabControls(container);
+        } else if (e.target.closest('.tab-down')) {
+          const next = row.nextElementSibling;
+          if (next) container.insertBefore(next, row);
+          updateTabControls(container);
+        }
+      });
+      container.addEventListener('change', (e) => {
+        if (!e.target.classList.contains('tab-cal')) return;
+        const row = e.target.closest('.tab-edit-row');
+        const nameInput = row.querySelector('.tab-name');
+        if (!nameInput.value.trim()) {
+          const cal = (container._calendars || []).find(c => c.id === e.target.value);
+          if (cal) nameInput.value = cal.summary;
+        }
+      });
+    }
+
+    if (addBtn && !addBtn.dataset.wired) {
+      addBtn.dataset.wired = '1';
+      addBtn.addEventListener('click', () => {
+        if (container.querySelectorAll('.tab-edit-row').length >= Store.MAX_TABS) return;
+        container.appendChild(makeTabRow(container, null));
+        updateTabControls(container);
+      });
+    }
+
+    updateTabControls(container);
+  }
+
+  function readTabsEditor(container) {
+    let defaultCalendarId = '';
+    const tabs = Array.from(container.querySelectorAll('.tab-edit-row')).map((row) => {
+      const calendarId = row.querySelector('.tab-cal').value;
+      const name = row.querySelector('.tab-name').value.trim();
+      if (row.querySelector('.tab-default').checked) defaultCalendarId = calendarId;
+      return { calendarId, name };
+    });
+    return { tabs, defaultCalendarId };
   }
 
   function renderCalendarSelect(select, calendars, selectedId) {
@@ -195,8 +292,8 @@
 
   window.UI = {
     renderEventList,
-    renderCalendarChecklist,
-    getCheckedIds,
+    renderTabsEditor,
+    readTabsEditor,
     renderCalendarSelect,
     showOnly,
     removeEventRow,

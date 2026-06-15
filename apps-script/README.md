@@ -26,7 +26,8 @@ the Done calendar), so everything still here is genuinely unfinished.
 1. **Calendar ID:** Google Calendar → the Important calendar's *Settings* →
    *Integrate calendar* → copy **Calendar ID**
    (`…@group.calendar.google.com`, or your address if it's the primary calendar).
-   Same value gtodo stores as `importantCalendarId`.
+   Use the calendar ID of whichever calendar you want rolled forward (in gtodo,
+   that's one of the calendars you've set up as a tab).
 2. **New project:** go to `script.google.com` → *New project*.
 3. Paste `Code.gs`; set `IMPORTANT_CAL_ID` to the value from step 1.
 4. **Timezone:** Project Settings (gear) → enable "Show appsscript.json", then

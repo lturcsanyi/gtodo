@@ -216,6 +216,45 @@ button.secondary:hover { background: var(--border); }
   font-size: 14px;
 }
 
+/* Tabs editor (settings + initial picker) */
+.tab-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tab-edit-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.3fr) minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.tab-edit-row select,
+.tab-edit-row input[type="text"] {
+  min-width: 0;
+  padding: 8px 8px;
+  font-size: 14px;
+  margin-top: 0;
+}
+.tab-edit-row .tab-default {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  margin: 0;
+}
+.tab-edit-row .icon-btn {
+  width: 30px;
+  height: 34px;
+  font-size: 14px;
+}
+.tab-edit-row .icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.tab-edit-row .icon-btn:disabled:hover {
+  background: transparent;
+}
+
 /* Event list */
 .event-list {
   padding: 8px 0 80px 0;
@@ -349,9 +388,10 @@ button.secondary:hover { background: var(--border); }
 
 .tab {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: 0;
-  padding: 14px 0;
+  padding: 14px 6px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -360,6 +400,9 @@ button.secondary:hover { background: var(--border); }
   position: relative;
   transition: color 150ms ease;
   -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tab:active { transform: scale(0.98); }
@@ -422,4 +465,9 @@ button.secondary:hover { background: var(--border); }
   .event-row { grid-template-columns: 24px 52px 3px 1fr auto; gap: 8px; padding: 12px 4px; }
   .event-delete { opacity: 0.5; }
   .card { margin: 16px 0; padding: 16px; }
+
+  /* Tabs editor reflows: calendar + reorder/remove on the first row,
+     the name input spanning a second row beneath. */
+  .tab-edit-row { grid-template-columns: auto 1fr auto auto auto; row-gap: 6px; }
+  .tab-edit-row .tab-name { grid-column: 2 / -1; }
 }

@@ -45,14 +45,15 @@
       </div>
     </section>
 
-    <!-- Pick source + done calendars -->
+    <!-- Pick tabs + done calendar -->
     <section id="view-pickcals" class="view hidden">
       <div class="card">
-        <h2>Pick your calendars</h2>
-        <p class="muted">Choose which calendars feed the todo list, and where <em>Complete</em> moves events.</p>
+        <h2>Set up your tabs</h2>
+        <p class="muted">Each tab shows one calendar. Add up to 5, name them, set the order, and pick the default (●).</p>
 
-        <h3>Show events from</h3>
-        <div id="source-cal-list" class="cal-list"></div>
+        <h3>Tabs</h3>
+        <div id="pickcals-tabs" class="tab-edit-list"></div>
+        <button id="pickcals-add-tab" class="secondary">+ Add tab</button>
 
         <h3>"Done" calendar (where completed events move)</h3>
         <select id="done-cal-select"></select>
@@ -71,12 +72,9 @@
     </section>
   </main>
 
-  <!-- Bottom tab bar — only visible when an Important calendar is configured.
-       Important is the default tab and sits on the left. -->
-  <nav id="tabbar" class="tabbar hidden" aria-label="Sections">
-    <button class="tab active" data-tab="important" type="button">Important</button>
-    <button class="tab" data-tab="events" type="button">Events</button>
-  </nav>
+  <!-- Bottom tab bar — one button per configured tab, built by app.js.
+       Only shown when 2+ tabs are configured. -->
+  <nav id="tabbar" class="tabbar hidden" aria-label="Sections"></nav>
 
   <!-- Settings drawer (overlay) -->
   <div id="settings-drawer" class="drawer hidden">
@@ -93,19 +91,15 @@
       </section>
 
       <section>
-        <h3>Show events from</h3>
-        <div id="settings-source-list" class="cal-list"></div>
+        <h3>Tabs</h3>
+        <p class="muted">One calendar per tab (1–5). Reorder with ▲▼, pick the default with ●.</p>
+        <div id="settings-tabs" class="tab-edit-list"></div>
+        <button id="settings-add-tab" class="secondary">+ Add tab</button>
       </section>
 
       <section>
         <h3>"Done" calendar</h3>
         <select id="settings-done-select"></select>
-      </section>
-
-      <section>
-        <h3>"Important" calendar (optional)</h3>
-        <p class="muted">Events from this calendar appear under a separate <em>Important</em> tab. Leave blank to disable the tab.</p>
-        <select id="settings-important-select"></select>
       </section>
 
       <section>
