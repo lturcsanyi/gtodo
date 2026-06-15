@@ -3,6 +3,7 @@
 A personal productivity tool that treats your Google Calendar events as a todo list.
 
 - Dense, Things-style list view (Today, Tomorrow, later days)
+- Bottom tab bar with one tab per calendar (up to 5, reorderable, with a default; the bar only appears when you have 2+)
 - Tap an event → opens it in Google Calendar
 - **Complete** → moves the event to your "Done" calendar (`events.move`)
 - **Delete** → removes the event (`events.delete`)
@@ -77,10 +78,12 @@ You'll paste this Client ID into the app's settings on first run — it's not st
 2. You'll see a settings screen. Paste the OAuth **Client ID** from step 1.4. Save.
 3. Click **Sign in with Google**. Google will warn that the app isn't verified — that's expected in Testing mode. Click **Continue**.
 4. Grant calendar access.
-5. The settings panel will now show your calendars. Pick:
-   - Which calendars to **show events from** (your work cal, personal cal, etc.)
-   - Your **Done** calendar (where Complete moves events to). Create a calendar called "Done" in Google Calendar first if you don't have one.
-6. Close settings. Your events appear as a todo list.
+5. A tab-setup screen appears. Each **tab** shows the events of one calendar:
+   - Add 1–5 calendars (work cal, personal cal, etc.). Each becomes a tab in the bottom bar (shown only when you have 2+).
+   - Optionally rename each tab and reorder them with ▲▼.
+   - Pick which tab is the **default** (shown on load) with the radio button.
+   - Choose your **Done** calendar (where Complete moves events to). Create a calendar called "Done" in Google Calendar first if you don't have one.
+6. Save. Your events appear as a todo list. Reopen this anytime from the settings drawer.
 
 ### Install as a PWA on Android
 1. Open the GitHub Pages URL in Chrome on Android.
@@ -110,6 +113,7 @@ gtodo/
 ├── sw.js                   # service worker (caches app shell)
 ├── icons/icon.svg          # PWA icon
 ├── css/style.css           # dense list styling
+├── apps-script/            # optional nightly automation (see apps-script/README.md)
 └── js/
     ├── app.js              # entry, orchestrates everything
     ├── auth.js             # Google Identity Services token client
@@ -125,4 +129,5 @@ gtodo/
 - **Testing mode token lifetime**: refresh tokens issued in Testing mode expire after 7 days. You'll need to sign in again roughly weekly. To get longer-lived tokens, you'd have to put the app through Google's verification process.
 - **Recurring events**: when you complete a single instance of a recurring event, `events.move` may behave unexpectedly (it acts on series, not instances). For recurring events, Complete will likely error out — Delete works on the single instance because we list events with `singleEvents=true`.
 - **Time zones**: events are rendered in your browser's local time zone.
+- **Optional automation**: [`apps-script/`](apps-script/) holds a standalone Google Apps Script that runs nightly *as you* and rolls unfinished todos in a chosen calendar forward to the next day, so overdue items don't get buried. It runs server-side on a schedule (the PWA can't — it only runs while open) and isn't affected by the 7-day token expiry. See [its README](apps-script/README.md) to set up.
 - The OAuth Client ID is a **public** identifier — even if you commit it, it's not a secret. The app keeps it in localStorage just to avoid polluting the repo.
